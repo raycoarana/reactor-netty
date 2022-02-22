@@ -274,7 +274,7 @@ public final class TransportConnector {
 		Channel channel = null;
 		try {
 			channel = channelFactory.newChannel();
-			container.saveContainer(channel);
+			container.save(channel);
 			if (channelInitializer instanceof ServerTransport.AcceptorInitializer) {
 				((ServerTransport.AcceptorInitializer) channelInitializer).acceptor.enableAutoReadTask(channel);
 			}

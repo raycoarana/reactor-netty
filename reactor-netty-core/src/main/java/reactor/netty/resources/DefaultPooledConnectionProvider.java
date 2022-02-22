@@ -169,8 +169,8 @@ final class DefaultPooledConnectionProvider extends PooledConnectionProvider<Def
 			pooledConnection.pooledRef = pooledRef;
 
 			Channel c = pooledConnection.channel;
-			ContextContainer container = ContextContainer.restoreContainer(propagationContext);
-			container.saveContainer(c);
+			ContextContainer container = ContextContainer.restore(propagationContext);
+			container.save(c);
 
 			if (c.eventLoop().inEventLoop()) {
 				run();
@@ -415,7 +415,7 @@ final class DefaultPooledConnectionProvider extends PooledConnectionProvider<Def
 
 				ConnectionObserver obs = channel.attr(OWNER)
 				                                .getAndSet(ConnectionObserver.emptyListener());
-				ContextContainer.resetContainer(channel);
+				ContextContainer.reset(channel);
 
 				if (pooledRef == null) {
 					return;
@@ -505,7 +505,7 @@ final class DefaultPooledConnectionProvider extends PooledConnectionProvider<Def
 			return Mono.create(sink -> {
 				PooledConnectionInitializer initializer = new PooledConnectionInitializer(sink);
 				EventLoop callerEventLoop = sink.currentContext().get(CONTEXT_CALLER_EVENTLOOP);
-				ContextContainer container = ContextContainer.restoreContainer(sink.currentContext());
+				ContextContainer container = ContextContainer.restore(sink.currentContext());
 				TransportConnector.connect(config, remoteAddress, resolver, initializer, callerEventLoop, container)
 				                  .subscribe(initializer);
 			});

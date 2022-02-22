@@ -110,7 +110,7 @@ public final class MicrometerChannelMetricsHandler extends AbstractChannelMetric
 			// Important:
 			// Cannot cache the Timer anymore - need to test the performance
 			this.remoteAddress = formatSocketAddress(remoteAddress);
-			ContextContainer container = ContextContainer.restoreContainer(ctx.channel());
+			ContextContainer container = ContextContainer.restore(ctx.channel());
 			Observation observation;
 			try (ContextContainer.Scope scope = container.restoreThreadLocalValues()) {
 				observation = Observation.start(recorder.name() + CONNECT_TIME, this, REGISTRY);

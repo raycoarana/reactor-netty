@@ -110,7 +110,7 @@ final class MicrometerHttpClientMetricsHandler extends AbstractHttpClientMetrics
 		HttpClientRequest httpClientRequest = new ObservationHttpClientRequest(msg, method, path);
 		responseTimeHandlerContext = new ResponseTimeHandlerContext(httpClientRequest,
 				channel.remoteAddress(), recorder.protocol());
-		ContextContainer container = ContextContainer.restoreContainer(channel);
+		ContextContainer container = ContextContainer.restore(channel);
 		try (ContextContainer.Scope scope = container.restoreThreadLocalValues()) {
 			responseTimeObservation = Observation.start(recorder.name() + RESPONSE_TIME, responseTimeHandlerContext, REGISTRY);
 		}

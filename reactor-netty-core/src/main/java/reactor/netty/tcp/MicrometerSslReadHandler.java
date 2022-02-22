@@ -67,7 +67,7 @@ final class MicrometerSslReadHandler extends Observation.Context implements Reac
 	@Override
 	@SuppressWarnings("try")
 	public void channelActive(ChannelHandlerContext ctx) {
-		ContextContainer container = ContextContainer.restoreContainer(ctx.channel());
+		ContextContainer container = ContextContainer.restore(ctx.channel());
 		try (ContextContainer.Scope scope = container.restoreThreadLocalValues()) {
 			observation = Observation.start(recorder.name() + TLS_HANDSHAKE_TIME, this, REGISTRY);
 		}
