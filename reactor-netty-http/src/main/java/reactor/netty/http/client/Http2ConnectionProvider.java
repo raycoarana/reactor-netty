@@ -98,6 +98,7 @@ final class Http2ConnectionProvider extends PooledConnectionProvider<Connection>
 			ConnectionObserver connectionObserver,
 			long pendingAcquireTimeout,
 			InstrumentedPool<Connection> pool,
+			Context propagationContext,
 			MonoSink<Connection> sink) {
 		boolean acceptGzip = config instanceof HttpClientConfig && ((HttpClientConfig) config).acceptGzip;
 		return new DisposableAcquire(connectionObserver, config.channelOperationsProvider(),

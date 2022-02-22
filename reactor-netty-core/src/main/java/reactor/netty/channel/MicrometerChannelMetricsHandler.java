@@ -17,6 +17,7 @@ package reactor.netty.channel;
 
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.observation.Observation;
+import io.micrometer.contextpropagation.ContextContainer;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandler;
@@ -96,6 +97,7 @@ public final class MicrometerChannelMetricsHandler extends AbstractChannelMetric
 		}
 
 		@Override
+		@SuppressWarnings("try")
 		public void connect(ChannelHandlerContext ctx, SocketAddress remoteAddress,
 				SocketAddress localAddress, ChannelPromise promise) throws Exception {
 			// TODO
@@ -108,7 +110,11 @@ public final class MicrometerChannelMetricsHandler extends AbstractChannelMetric
 			// Important:
 			// Cannot cache the Timer anymore - need to test the performance
 			this.remoteAddress = formatSocketAddress(remoteAddress);
-			Observation observation = Observation.start(recorder.name() + CONNECT_TIME, this, REGISTRY);
+			ContextContainer container = ContextContainer.restoreContainer(ctx.channel());
+			Observation observation;
+			try (ContextContainer.Scope scope = container.restoreThreadLocalValues()) {
+				observation = Observation.start(recorder.name() + CONNECT_TIME, this, REGISTRY);
+			}
 			ctx.connect(remoteAddress, localAddress, promise)
 			   .addListener(future -> {
 			       ctx.pipeline().remove(this);

@@ -20,6 +20,8 @@ import io.micrometer.core.instrument.observation.Observation;
 import io.micrometer.core.instrument.transport.http.HttpClientRequest;
 import io.micrometer.core.instrument.transport.http.HttpClientResponse;
 import io.micrometer.core.instrument.transport.http.context.HttpClientContext;
+import io.micrometer.contextpropagation.ContextContainer;
+import io.netty.channel.Channel;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import reactor.netty.observability.ReactorNettyHandlerContext;
@@ -93,20 +95,25 @@ final class MicrometerHttpClientMetricsHandler extends AbstractHttpClientMetrics
 
 	// reading the response
 	@Override
-	protected void startRead(HttpResponse msg, SocketAddress address) {
-		super.startRead(msg, address);
+	protected void startRead(HttpResponse msg) {
+		super.startRead(msg);
 
 		responseTimeHandlerContext.setResponse(new ObservationHttpClientResponse(msg));
 	}
 
 	// writing the request
 	@Override
-	protected void startWrite(HttpRequest msg, SocketAddress address) {
-		super.startWrite(msg, address);
+	@SuppressWarnings("try")
+	protected void startWrite(HttpRequest msg, Channel channel) {
+		super.startWrite(msg, channel);
 
 		HttpClientRequest httpClientRequest = new ObservationHttpClientRequest(msg, method, path);
-		responseTimeHandlerContext = new ResponseTimeHandlerContext(httpClientRequest, address, recorder.protocol());
-		responseTimeObservation = Observation.start(recorder.name() + RESPONSE_TIME, responseTimeHandlerContext, REGISTRY);
+		responseTimeHandlerContext = new ResponseTimeHandlerContext(httpClientRequest,
+				channel.remoteAddress(), recorder.protocol());
+		ContextContainer container = ContextContainer.restoreContainer(channel);
+		try (ContextContainer.Scope scope = container.restoreThreadLocalValues()) {
+			responseTimeObservation = Observation.start(recorder.name() + RESPONSE_TIME, responseTimeHandlerContext, REGISTRY);
+		}
 	}
 
 	static final class ObservationHttpClientRequest implements HttpClientRequest {

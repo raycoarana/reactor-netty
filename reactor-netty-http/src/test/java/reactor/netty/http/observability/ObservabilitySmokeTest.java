@@ -18,7 +18,9 @@ package reactor.netty.http.observability;
 import java.nio.charset.Charset;
 import java.security.cert.CertificateException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Deque;
+import java.util.List;
 import java.util.Random;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -36,6 +38,7 @@ import io.netty.handler.ssl.util.SelfSignedCertificate;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.netty.ByteBufMono;
 import reactor.netty.DisposableServer;
@@ -43,8 +46,8 @@ import reactor.netty.http.Http11SslContextSpec;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.http.server.HttpServer;
 import reactor.netty.observability.ReactorNettyTracingObservationHandler;
-import reactor.test.StepVerifier;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static reactor.netty.Metrics.REGISTRY;
 
 @SuppressWarnings("rawtypes")
@@ -97,11 +100,6 @@ class ObservabilitySmokeTest extends SampleTestRunner {
 	}
 
 	@Override
-	public TracingSetup[] getTracingSetup() {
-		return new TracingSetup[] {TracingSetup.ZIPKIN_BRAVE};
-	}
-
-	@Override
 	public SampleTestRunnerConsumer yourCode() {
 		return (bb, meterRegistry) -> {
 			Http11SslContextSpec serverCtxHttp11 = Http11SslContextSpec.forServer(ssc.certificate(), ssc.privateKey());
@@ -124,14 +122,17 @@ class ObservabilitySmokeTest extends SampleTestRunner {
 					          .metrics(true, Function.identity())
 					          .secure(spec -> spec.sslContext(clientCtxHttp11));
 
-			client.post()
-			      .uri("/post")
-			      .send(ByteBufMono.fromString(Mono.just(content)))
-			      .responseSingle((res, bytebuf) -> bytebuf.asString())
-			      .as(StepVerifier::create)
-			      .expectNext(content)
-			      .expectComplete()
-			      .verify(Duration.ofSeconds(10));
+			List<String> responses =
+					Flux.range(0, 2)
+					    .flatMap(i ->
+					        client.post()
+					              .uri("/post")
+					              .send(ByteBufMono.fromString(Mono.just(content)))
+					              .responseSingle((res, bytebuf) -> bytebuf.asString()))
+					    .collectList()
+					    .block(Duration.ofSeconds(10));
+
+			assertThat(responses).isEqualTo(Arrays.asList(content, content));
 
 			Span current = bb.getTracer().currentSpan();
 

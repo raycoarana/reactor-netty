@@ -17,6 +17,7 @@ package reactor.netty.tcp;
 
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.observation.Observation;
+import io.micrometer.contextpropagation.ContextContainer;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandler;
 import io.netty.handler.ssl.SslHandshakeCompletionEvent;
@@ -64,8 +65,12 @@ final class MicrometerSslReadHandler extends Observation.Context implements Reac
 	}
 
 	@Override
+	@SuppressWarnings("try")
 	public void channelActive(ChannelHandlerContext ctx) {
-		observation = Observation.start(recorder.name() + TLS_HANDSHAKE_TIME, this, REGISTRY);
+		ContextContainer container = ContextContainer.restoreContainer(ctx.channel());
+		try (ContextContainer.Scope scope = container.restoreThreadLocalValues()) {
+			observation = Observation.start(recorder.name() + TLS_HANDSHAKE_TIME, this, REGISTRY);
+		}
 		ctx.read(); //consume handshake
 	}
 
