@@ -121,22 +121,22 @@ final class DefaultPooledConnectionProvider extends PooledConnectionProvider<Def
 				Context propagationContext,
 				MonoSink<Connection> sink) {
 			this.cancellations = Disposables.composite();
-			this.propagationContext = propagationContext;
 			this.obs = obs;
 			this.opsFactory = opsFactory;
 			this.pendingAcquireTimeout = pendingAcquireTimeout;
 			this.pool = pool;
+			this.propagationContext = propagationContext;
 			this.retried = false;
 			this.sink = sink;
 		}
 
 		DisposableAcquire(DisposableAcquire parent) {
 			this.cancellations = parent.cancellations;
-			this.propagationContext = parent.propagationContext;
 			this.obs = parent.obs;
 			this.opsFactory = parent.opsFactory;
 			this.pendingAcquireTimeout = parent.pendingAcquireTimeout;
 			this.pool = parent.pool;
+			this.propagationContext = parent.propagationContext;
 			this.retried = true;
 			this.sink = parent.sink;
 		}
