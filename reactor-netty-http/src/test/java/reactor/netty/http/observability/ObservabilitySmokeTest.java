@@ -43,9 +43,12 @@ import reactor.core.publisher.Mono;
 import reactor.netty.ByteBufMono;
 import reactor.netty.DisposableServer;
 import reactor.netty.http.Http11SslContextSpec;
+import reactor.netty.http.Http2SslContextSpec;
+import reactor.netty.http.HttpProtocol;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.http.server.HttpServer;
 import reactor.netty.observability.ReactorNettyTracingObservationHandler;
+import reactor.netty.resources.ConnectionProvider;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static reactor.netty.Metrics.REGISTRY;
@@ -102,39 +105,33 @@ class ObservabilitySmokeTest extends SampleTestRunner {
 	@Override
 	public SampleTestRunnerConsumer yourCode() {
 		return (bb, meterRegistry) -> {
-			Http11SslContextSpec serverCtxHttp11 = Http11SslContextSpec.forServer(ssc.certificate(), ssc.privateKey());
+			Http2SslContextSpec serverCtxHttp2 = Http2SslContextSpec.forServer(ssc.certificate(), ssc.privateKey());
 			disposableServer =
 					HttpServer.create()
-					          .wiretap(true)
 					          .metrics(true, Function.identity())
-					          .secure(spec -> spec.sslContext(serverCtxHttp11))
+					          .secure(spec -> spec.sslContext(serverCtxHttp2))
+					          .protocol(HttpProtocol.HTTP11, HttpProtocol.H2)
 					          .route(r -> r.post("/post", (req, res) -> res.send(req.receive().retain())))
 					          .bindNow();
 
-			Http11SslContextSpec clientCtxHttp11 =
-					Http11SslContextSpec.forClient()
-					                    .configure(builder -> builder.trustManager(InsecureTrustManagerFactory.INSTANCE));
-			HttpClient client =
-					HttpClient.create()
-					          .port(disposableServer.port())
-					          .host("localhost")
-					          .wiretap(true)
-					          .metrics(true, Function.identity())
-					          .secure(spec -> spec.sslContext(clientCtxHttp11));
+			// Default connection pool
+			sendRequest(HttpClient.create());
 
-			List<String> responses =
-					Flux.range(0, 2)
-					    .flatMap(i ->
-					        client.post()
-					              .uri("/post")
-					              .send(ByteBufMono.fromString(Mono.just(content)))
-					              .responseSingle((res, bytebuf) -> bytebuf.asString()))
-					    .collectList()
-					    .block(Duration.ofSeconds(10));
+			// Disabled connection pool
+			sendRequest(HttpClient.newConnection());
 
-			assertThat(responses).isEqualTo(Arrays.asList(content, content));
+			// Custom connection pool
+			ConnectionProvider provider = ConnectionProvider.create("observability", 1);
+			try {
+				sendRequest(HttpClient.create(provider));
+			}
+			finally {
+				provider.disposeLater()
+				        .block(Duration.ofSeconds(5));
+			}
 
 			Span current = bb.getTracer().currentSpan();
+			assertThat(current).isNotNull();
 
 			SpansAssert.assertThat(bb.getFinishedSpans().stream().filter(f -> f.getTraceId().equals(current.context().traceId()))
 			           .collect(Collectors.toList()))
@@ -142,5 +139,28 @@ class ObservabilitySmokeTest extends SampleTestRunner {
 			           .hasASpanWithName("tls handshake")
 			           .hasASpanWithName("POST");
 		};
+	}
+
+	static void sendRequest(HttpClient client) {
+		Http11SslContextSpec clientCtxHttp11 =
+				Http11SslContextSpec.forClient()
+				                   .configure(builder -> builder.trustManager(InsecureTrustManagerFactory.INSTANCE));
+		HttpClient localClient =
+				client.port(disposableServer.port())
+				      .host("localhost")
+				      .metrics(true, Function.identity())
+				      .secure(spec -> spec.sslContext(clientCtxHttp11));
+
+		List<String> responses =
+				Flux.range(0, 2)
+				    .flatMap(i ->
+				        localClient.post()
+				                   .uri("/post")
+				                   .send(ByteBufMono.fromString(Mono.just(content)))
+				                   .responseSingle((res, bytebuf) -> bytebuf.asString()))
+				    .collectList()
+				    .block(Duration.ofSeconds(10));
+
+		assertThat(responses).isEqualTo(Arrays.asList(content, content));
 	}
 }
