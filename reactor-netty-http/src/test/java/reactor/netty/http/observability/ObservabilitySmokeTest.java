@@ -135,6 +135,7 @@ class ObservabilitySmokeTest extends SampleTestRunner {
 
 			SpansAssert.assertThat(bb.getFinishedSpans().stream().filter(f -> f.getTraceId().equals(current.context().traceId()))
 			           .collect(Collectors.toList()))
+			           .hasASpanWithName("hostname resolution")
 			           .hasASpanWithName("connect")
 			           .hasASpanWithName("tls handshake")
 			           .hasASpanWithName("POST");

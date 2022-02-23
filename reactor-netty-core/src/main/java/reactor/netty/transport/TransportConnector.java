@@ -159,7 +159,7 @@ public final class TransportConnector {
 
 		boolean isDomainAddress = remoteAddress instanceof DomainSocketAddress;
 		return doInitAndRegister(config, channelInitializer, isDomainAddress, eventLoop, container)
-				.flatMap(channel -> doResolveAndConnect(channel, config, remoteAddress, resolverGroup)
+				.flatMap(channel -> doResolveAndConnect(channel, config, remoteAddress, resolverGroup, container)
 						.onErrorResume(RetryConnectException.class,
 								t -> {
 									AtomicInteger index = new AtomicInteger(1);
@@ -306,9 +306,9 @@ public final class TransportConnector {
 		return monoChannelPromise;
 	}
 
-	@SuppressWarnings({"unchecked", "FutureReturnValueIgnored"})
+	@SuppressWarnings({"unchecked", "FutureReturnValueIgnored", "try"})
 	static Mono<Channel> doResolveAndConnect(Channel channel, TransportConfig config,
-			SocketAddress remoteAddress, AddressResolverGroup<?> resolverGroup) {
+			SocketAddress remoteAddress, AddressResolverGroup<?> resolverGroup, ContextContainer container) {
 		try {
 			AddressResolver<SocketAddress> resolver;
 			try {
@@ -334,7 +334,10 @@ public final class TransportConnector {
 				}
 			}
 
-			Future<List<SocketAddress>> resolveFuture = resolver.resolveAll(remoteAddress);
+			Future<List<SocketAddress>> resolveFuture;
+			try (ContextContainer.Scope scope = container.restoreThreadLocalValues()) {
+				resolveFuture = resolver.resolveAll(remoteAddress);
+			}
 
 			if (config instanceof ClientTransportConfig) {
 				final ClientTransportConfig<?> clientTransportConfig = (ClientTransportConfig<?>) config;
