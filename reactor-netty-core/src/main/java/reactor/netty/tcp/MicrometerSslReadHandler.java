@@ -147,15 +147,11 @@ final class MicrometerSslReadHandler extends Observation.Context implements Reac
 				ctx.pipeline().remove(this);
 			}
 			SslHandshakeCompletionEvent handshake = (SslHandshakeCompletionEvent) evt;
-			// TODO
-			// Cannot invoke the recorder any more:
+			// Cannot invoke the recorder anymore:
 			// 1. The recorder is one instance only, it is invoked for all TLS negotiations that can happen
 			// 2. The recorder does not have knowledge about TLS negotiation lifecycle
 			//
 			// Move the implementation from the recorder here
-			//
-			// Important:
-			// Cannot cache the Timer anymore - need to test the performance
 			this.remoteAddress = formatSocketAddress(ctx.channel().remoteAddress());
 			if (handshake.isSuccess()) {
 				status = SUCCESS;
